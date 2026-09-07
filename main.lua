@@ -37,8 +37,6 @@ local getinfo = getinfo or debug.getinfo
 local DEBUG = false
 local Hooked = {}
 
-local Detected, Kill
-
 setthreadidentity(2)
 
 for i, v in getgc(true) do
@@ -167,6 +165,119 @@ local function RegisterDrawing(drawingObj)
     table.insert(DrawingRegistry, drawingObj)
     return drawingObj
 end
+
+local AutoHealSelf = false
+local AutoHealNearby = false
+local AutoFixArmorSelf = false
+local AutoFixArmorNearby = false
+
+local function getChar()
+    local char = LocalPlayer.Character
+    if not char then
+        local ok, result = pcall(function()
+            return LocalPlayer.CharacterAdded:Wait()
+        end)
+        if ok then return result end
+    end
+    return char
+end
+
+local function getTool(toolName)
+    local char = getChar()
+    if not char then return nil, nil end
+    local tool = char:FindFirstChild(toolName) or LocalPlayer.Backpack:FindFirstChild(toolName)
+    if tool then
+        local ok, action = pcall(function()
+            return tool:WaitForChild("ActionMain", 5)
+        end)
+        if ok then return tool, action end
+    end
+    return nil, nil
+end
+
+local function getNearbyPlayers(range)
+    local char = LocalPlayer.Character
+    if not char then return {} end
+    local myRoot = char:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return {} end
+    local list = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                if (hrp.Position - myRoot.Position).Magnitude <= range then
+                    table.insert(list, plr.Character)
+                end
+            end
+        end
+    end
+    return list
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if AutoHealSelf then
+            pcall(function()
+                local char = getChar()
+                if not char then return end
+                local tool, event = getTool("Medkit")
+                if tool and event then
+                    event:FireServer("heal", char)
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if AutoHealNearby then
+            pcall(function()
+                local tool, event = getTool("Medkit")
+                if tool and event then
+                    for _, target in ipairs(getNearbyPlayers(50)) do
+                        event:FireServer("heal", target)
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if AutoFixArmorSelf then
+            pcall(function()
+                local char = getChar()
+                if not char then return end
+                local tool, event = getTool("Wrench")
+                if tool and event then
+                    event:FireServer("heal", char)
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if AutoFixArmorNearby then
+            pcall(function()
+                local tool, event = getTool("Wrench")
+                if tool and event then
+                    for _, target in ipairs(getNearbyPlayers(50)) do
+                        event:FireServer("heal", target)
+                    end
+                end
+            end)
+        end
+    end
+end)
 
 local MovementGroup = MainTab:AddLeftGroupbox('Movement & Camera')
 local CharacterGroup = MainTab:AddRightGroupbox('Character Modifiers')
@@ -304,7 +415,6 @@ Raiding:AddToggle('SeatTPEnabled', {
     end
 })
 
--- Added Raiding Base Tracker & Part Counter Integration
 Raiding:AddDivider()
 Raiding:AddLabel('Player Bases & Part Counts', true)
 
@@ -781,6 +891,53 @@ local AimFilterGroup = CombatTab:AddLeftGroupbox('Target Filtering')
 local TriggerGroup = CombatTab:AddRightGroupbox('Triggerbot Settings')
 local FOVGroup = CombatTab:AddRightGroupbox('FOV Visuals')
 
+local MedkitGroup = CombatTab:AddRightGroupbox('Auto-Heal Controls')
+local WrenchGroup = CombatTab:AddRightGroupbox('Auto-Fix Armor Controls')
+
+MedkitGroup:AddLabel('You MUST have Medkit selected in hotbar!', true)
+MedkitGroup:AddToggle('AutoHealSelfToggle', {
+    Text = 'Auto-Heal Self',
+    Default = false,
+    Callback = function(v) AutoHealSelf = v end
+})
+MedkitGroup:AddToggle('AutoHealNearbyToggle', {
+    Text = 'Auto-Heal Nearby Players',
+    Default = false,
+    Callback = function(v) AutoHealNearby = v end
+})
+
+MedkitGroup:AddButton({
+    Text = 'Spawn Medkit',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!s medkit")
+        end)
+    end
+})
+
+WrenchGroup:AddLabel('You MUST have Wrench selected in hotbar!', true)
+WrenchGroup:AddToggle('AutoFixArmorSelfToggle', {
+    Text = 'Auto-Fix Armor Self',
+    Default = false,
+    Callback = function(v) AutoFixArmorSelf = v end
+})
+WrenchGroup:AddToggle('AutoFixArmorNearbyToggle', {
+    Text = 'Auto-Fix Armor Nearby Players',
+    Default = false,
+    Callback = function(v) AutoFixArmorNearby = v end
+})
+
+WrenchGroup:AddButton({
+    Text = 'Spawn Wrench',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!s wrench")
+        end)
+    end
+})
+
 local AimToggle = AimbotGroup:AddToggle('AimbotEnabled', { Text = 'Enable Aimbot', Default = false })
 AimToggle:AddKeyPicker('AimbotKeybind', { Default = 'MB2', Mode = 'Hold', Text = 'Aimbot Key' })
 
@@ -814,7 +971,7 @@ local function IsValidTarget(part, character)
     local humanoid = character:FindFirstChildOfClass('Humanoid')
     local player = Players:GetPlayerFromCharacter(character)
 
-    if not humanoid or humanoid.Health < 0 then return false end
+    if not humanoid or humanoid.Health <= 4 then return false end
     if player == LocalPlayer then return false end
 
     if Toggles.AimbotPassiveCheck and Toggles.AimbotPassiveCheck.Value then
