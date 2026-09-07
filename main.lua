@@ -814,7 +814,7 @@ local function IsValidTarget(part, character)
     local humanoid = character:FindFirstChildOfClass('Humanoid')
     local player = Players:GetPlayerFromCharacter(character)
 
-    if not humanoid or humanoid.Health <= 0 then return false end
+    if not humanoid or humanoid.Health < 0 then return false end
     if player == LocalPlayer then return false end
 
     if Toggles.AimbotPassiveCheck and Toggles.AimbotPassiveCheck.Value then
