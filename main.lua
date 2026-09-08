@@ -1,5 +1,4 @@
--- mostly AI im embarrassed of ts
-
+-- emberassed of ts ai slop
 task.spawn(function()
 	local http_request = (psm and psm.request) or (syn and syn.request) or (fluxus and fluxus.request) or request or http_request or (http and http.request);
 	if not http_request then 
@@ -31,7 +30,6 @@ task.spawn(function()
 		end;
 	end;
 end);
-
 
 local getinfo = getinfo or debug.getinfo
 local DEBUG = false
@@ -87,7 +85,6 @@ local Old; Old = hookfunction(getrenv().debug.info, newcclosure(function(...)
     return Old(...)
 end))
 setthreadidentity(7)
-
 
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
 
@@ -396,7 +393,7 @@ local function CreateSeatGUI(seat)
 end
 
 Raiding:AddToggle('SeatTPEnabled', {
-    Text = 'Enable 3D World Seat TP',
+    Text = 'Enable Seat TP',
     Default = false,
     Callback = function(Value)
         if Value then
@@ -945,6 +942,10 @@ AimbotGroup:AddDropdown('AimbotTargetPart', { Values = { 'Head', 'HumanoidRootPa
 AimbotGroup:AddSlider('AimbotSmoothness', { Text = 'Smoothing', Default = 5, Min = 1, Max = 20, Rounding = 1 })
 AimbotGroup:AddToggle('AimbotStickyTarget', { Text = 'Sticky Target Lock', Default = true })
 
+local SilentAimGroup = CombatTab:AddLeftGroupbox('Silent Aim Settings')
+SilentAimGroup:AddToggle('SilentAimEnabled', { Text = 'Enable Tool Silent Aim', Default = false })
+SilentAimGroup:AddDropdown('SilentAimTargetMode', { Values = { 'Closest Head', 'Closest Torso', 'Closest HRP' }, Default = 1, Multi = false, Text = 'Silent Target Part' })
+
 AimFilterGroup:AddToggle('AimbotEnableBots', { Text = 'Target Bots', Default = false })
 AimFilterGroup:AddToggle('AimbotWallCheck', { Text = 'Wall Check', Default = true })
 AimFilterGroup:AddToggle('AimbotPassiveCheck', { Text = 'Ignore Passive / ForceField', Default = false })
@@ -963,6 +964,114 @@ FOVCircle.NumSides = 60
 FOVCircle.Filled = false
 FOVCircle.Visible = false
 
+local function getClosestTargetPartForSilent()
+    local closestPart = nil
+    local shortestDistance = math.huge
+    local targetMode = Options.SilentAimTargetMode and Options.SilentAimTargetMode.Value or 'Closest Head'
+    local targetPartName = "Head"
+    if targetMode == 'Closest Torso' then targetPartName = "Torso"
+    elseif targetMode == 'Closest HRP' then targetPartName = "HumanoidRootPart" end
+
+    local maxRadius = Options.AimbotFOV and Options.AimbotFOV.Value or 150
+    local centerScreen = Vector2_new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            local targetPart = player.Character:FindFirstChild(targetPartName) or player.Character:FindFirstChild("Head")
+            
+            if humanoid and humanoid.Health > 0 and targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local distToScreen = (Vector2_new(screenPos.X, screenPos.Y) - centerScreen).Magnitude
+                    if distToScreen <= maxRadius then
+                        local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            closestPart = targetPart
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closestPart and closestPart.CFrame or nil
+end
+
+local function setupTool(tool)
+    if not tool:IsA("Tool") then return end
+
+    tool.Equipped:Connect(function()
+        if not (Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value) then return end
+        
+        local success, connections = pcall(function()
+            return getconnections(tool.Equipped)
+        end)
+        
+        if success and connections then
+            for _, conn in ipairs(connections) do
+                if conn.Function then
+                    local old
+                    old = hookfunction(conn.Function, function(mouse)
+                        if not (Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value) then
+                            return old(mouse)
+                        end
+
+                        local new = setmetatable({}, {
+                            __index = function(a, b)
+                                if b == "Hit" then
+                                    local targetCFrame = getClosestTargetPartForSilent()
+                                    if targetCFrame then
+                                        return targetCFrame
+                                    end
+                                    return CFrame.new(0, 0, 0)
+                                end
+                                return mouse[b]
+                            end,
+                            __newindex = function(a, b, c)
+                                mouse[b] = c
+                            end
+                        })
+                        return old(new)
+                    end)
+                end
+            end
+        end
+    end)
+end
+
+local function scanInventory()
+    if LocalPlayer.Backpack then
+        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            setupTool(item)
+        end
+    end
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do
+            setupTool(item)
+        end
+    end
+end
+
+scanInventory()
+
+if LocalPlayer.Backpack then
+    LocalPlayer.Backpack.ChildAdded:Connect(function(item)
+        task.wait(0.1)
+        setupTool(item)
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char.ChildAdded:Connect(function(item)
+        task.wait(0.1)
+        setupTool(item)
+    end)
+    task.wait(0.5)
+    scanInventory()
+end)
+
 local LockedTargetPart = nil
 local CurrentTargetPlayer = nil
 
@@ -971,7 +1080,7 @@ local function IsValidTarget(part, character)
     local humanoid = character:FindFirstChildOfClass('Humanoid')
     local player = Players:GetPlayerFromCharacter(character)
 
-    if not humanoid or humanoid.Health <= 4 then return false end
+    if not humanoid or humanoid.Health <= 0 then return false end
     if player == LocalPlayer then return false end
 
     if Toggles.AimbotPassiveCheck and Toggles.AimbotPassiveCheck.Value then
@@ -1041,6 +1150,8 @@ local function GetClosestTarget()
         local targetPart = GetBestTargetPart(CurrentTargetPlayer.Character)
         if targetPart and IsValidTarget(targetPart, CurrentTargetPlayer.Character) then
             return targetPart, CurrentTargetPlayer
+        else
+            CurrentTargetPlayer = nil
         end
     end
 
@@ -1112,7 +1223,6 @@ local CombatConnection = RunService.RenderStepped:Connect(function(deltaTime)
         if LockedTargetPart then
             local targetPos = LockedTargetPart.Position
             local targetCFrame = CFrame_new(Camera.CFrame.Position, targetPos)
-
 
             local smoothValue = Options.AimbotSmoothness and Options.AimbotSmoothness.Value or 5
             local alpha = math_clamp(1 / math_max(smoothValue, 1), 0, 1)
@@ -1205,6 +1315,8 @@ local function ApplyWeaponMod()
         guardTime = Options.ModGuardTime and Options.ModGuardTime.Value or mod.guardTime,
         BoltAction = Toggles.ModBoltAction and not Toggles.ModBoltAction.Value or mod.BoltAction,
         auto = Toggles.MakeGunAutoAction and Toggles.MakeGunAutoAction.Value or mod.auto,
+        scatter = (Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value) and nil or mod.scatter,
+        AimScatterMultiplyer = nil,
     }
 
     for index, v in pairs(cfg) do
@@ -1325,6 +1437,80 @@ BoxToggle:AddColorPicker('BoxColor', { Default = Color3.fromRGB(255, 255, 255) }
 local NameToggle = PlayerESPGroup:AddToggle('NameESP', { Text = 'Name / Distance ESP', Default = false })
 NameToggle:AddColorPicker('NameColor', { Default = Color3.fromRGB(255, 255, 255) })
 
+local GlobalNameConnections = {}
+
+local function obfuscateText(text)
+    if not (Toggles.HideAllUsernames and Toggles.HideAllUsernames.Value) then return text end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if player.Name and #player.Name > 0 then
+                text = text:gsub(player.Name, "[Hidden]")
+            end
+            if player.DisplayName and #player.DisplayName > 0 then
+                text = text:gsub(player.DisplayName, "[Hidden]")
+            end
+        end
+    end
+    return text
+end
+
+local function hookTextLabel(label)
+    if not (label:IsA("TextLabel") or label:IsA("TextBox") or label:IsA("TextButton")) then return end
+    
+    local clean = obfuscateText(label.Text)
+    if label.Text ~= clean then
+        label.Text = clean
+    end
+
+    local conn = label:GetPropertyChangedSignal("Text"):Connect(function()
+        if not (Toggles.HideAllUsernames and Toggles.HideAllUsernames.Value) then return end
+        local cleanText = obfuscateText(label.Text)
+        if label.Text ~= cleanText then
+            label.Text = cleanText
+        end
+    end)
+    table.insert(GlobalNameConnections, conn)
+end
+
+local function initGlobalHiding()
+    pcall(function()
+        for _, gui in ipairs(game:GetService("CoreGui"):GetDescendants()) do
+            hookTextLabel(gui)
+        end
+        table.insert(GlobalNameConnections, game:GetService("CoreGui").DescendantAdded:Connect(hookTextLabel))
+    end)
+
+    pcall(function()
+        if LocalPlayer:FindFirstChild("PlayerGui") then
+            for _, gui in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
+                hookTextLabel(gui)
+            end
+            table.insert(GlobalNameConnections, LocalPlayer.PlayerGui.DescendantAdded:Connect(hookTextLabel))
+        end
+    end)
+end
+
+local function cleanupGlobalHiding()
+    for _, conn in ipairs(GlobalNameConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(GlobalNameConnections)
+end
+
+PlayerESPGroup:AddToggle('HideAllUsernames', { 
+    Text = 'Hide All Usernames', 
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            initGlobalHiding()
+            Library:Notify('username hiding enabled!', 3)
+        else
+            cleanupGlobalHiding()
+            Library:Notify('username hiding disabled.', 3)
+        end
+    end
+})
+
 local HealthBarToggle = PlayerESPGroup:AddToggle('HealthBarESP', { Text = 'Health Bar', Default = false })
 
 local SkelToggle = PlayerESPGroup:AddToggle('SkeletonESP', { Text = 'Skeleton ESP', Default = false })
@@ -1332,7 +1518,7 @@ SkelToggle:AddColorPicker('SkeletonColor', { Default = Color3.fromRGB(255, 255, 
 
 local TracerToggle = PlayerESPGroup:AddToggle('TracerESP', { Text = 'Tracer Lines', Default = false })
 TracerToggle:AddColorPicker('TracerColor', { Default = Color3.fromRGB(255, 255, 255) })
-local PassiveToggle = PlayerESPGroup:AddToggle('PassiveESP', { Text = 'Passive / ForceField Text', Default = false })
+local PassiveToggle = PlayerESPGroup:AddToggle('PassiveESP', { Text = 'Passive Check', Default = false })
 
 PlayerESPGroup:AddDivider()
 PlayerESPGroup:AddToggle('ShowOnlyPassiveOff', {
@@ -1769,31 +1955,38 @@ local VisualsConnection = RunService.RenderStepped:Connect(function()
                         end
 
                         if Toggles.HealthBarESP and Toggles.HealthBarESP.Value then
-                            local healthPercent = math_clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-                            local barHeight = boxHeight
-                            local barWidth = 1
-                            local barX = boxPos.X - 4
-                            local barY = boxPos.Y
+                             local maxHealth = math.max(humanoid.MaxHealth, 1)
+                             local healthPercent = math_clamp(humanoid.Health / maxHealth, 0, 1)
+                             local barHeight = boxHeight
+                             local barWidth = 1
+                             local barX = boxPos.X - 4
+                             local barY = boxPos.Y
 
-                            data.HealthBarBg.Size = Vector2_new(barWidth + 2, barHeight + 2)
-                            data.HealthBarBg.Position = Vector2_new(barX - 1, barY - 1)
-                            data.HealthBarBg.Visible = true
+                             data.HealthBarBg.Size = Vector2_new(barWidth + 2, barHeight + 2)
+                             data.HealthBarBg.Position = Vector2_new(barX - 1, barY - 1)
+                             data.HealthBarBg.Visible = true
 
-                            local currentHeight = barHeight * healthPercent
-                            data.HealthBar.Size = Vector2_new(barWidth, currentHeight)
-                            data.HealthBar.Position = Vector2_new(barX, barY + (barHeight - currentHeight))
-                            data.HealthBar.Color = Color3_fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
-                            data.HealthBar.Visible = true
+                             local currentHeight = barHeight * healthPercent
+                             data.HealthBar.Size = Vector2_new(barWidth, currentHeight)
+                             data.HealthBar.Position = Vector2_new(barX, barY + (barHeight - currentHeight))
+                             data.HealthBar.Color = Color3_fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+                             data.HealthBar.Visible = true
                         else
-                            data.HealthBarBg.Visible = false
-                            data.HealthBar.Visible = false
+                             data.HealthBarBg.Visible = false
+                             data.HealthBar.Visible = false
                         end
 
                         if Toggles.NameESP and Toggles.NameESP.Value then
                             local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild('HumanoidRootPart')
                             local dist = myHRP and math_floor((myHRP.Position - hrp.Position).Magnitude) or 0
                             data.NameText.Color = Options.NameColor and Options.NameColor.Value or Color3_fromRGB(255, 255, 255)
-                            data.NameText.Text = string.format('%s [%dm]', player.Name, dist)
+                            
+                            local displayName = player.Name
+                            if Toggles.HideAllUsernames and Toggles.HideAllUsernames.Value then
+                                displayName = "[Hidden]"
+                            end
+
+                            data.NameText.Text = string.format('%s [%dm]', displayName, dist)
                             data.NameText.Position = Vector2_new(boxPos.X + (boxWidth / 2), boxPos.Y - 18)
                             data.NameText.Visible = true
                         else
@@ -1917,6 +2110,8 @@ Library:OnUnload(function()
     InputBeganConn:Disconnect()
     InputEndedConn:Disconnect()
     if FirstPersonBodyLoop then FirstPersonBodyLoop:Disconnect() end
+
+    cleanupGlobalHiding()
 
     for seat, _ in pairs(ActiveSeatGUIs) do
         RemoveSeatGUI(seat)
