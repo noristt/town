@@ -1001,6 +1001,19 @@ local function setupTool(tool)
     if not tool:IsA("Tool") then return end
 
     tool.Equipped:Connect(function()
+        -- Force global accMult to 0 on equip if silent aim is active
+        local settingsModule = tool:FindFirstChild('Settings')
+        if settingsModule and settingsModule:IsA('ModuleScript') then
+            pcall(function()
+                local mod = require(settingsModule)
+                if type(mod) == 'table' then
+                    if Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value then
+                        mod.accMult = 0
+                    end
+                end
+            end)
+        end
+
         if not (Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value) then return end
         
         local success, connections = pcall(function()
@@ -1315,6 +1328,7 @@ local function ApplyWeaponMod()
         auto = Toggles.MakeGunAutoAction and Toggles.MakeGunAutoAction.Value or mod.auto,
         scatter = (Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value) and nil or mod.scatter,
         AimScatterMultiplyer = nil,
+        accMult = (Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value) and 0 or mod.accMult,
     }
 
     for index, v in pairs(cfg) do
@@ -1450,24 +1464,6 @@ local function obfuscateText(text)
         end
     end
     return text
-end
-
-local function hookTextLabel(label)
-    if not (label:IsA("TextLabel") or label:IsA("TextBox") or label:IsA("TextButton")) then return end
-    
-    local clean = obfuscateText(label.Text)
-    if label.Text ~= clean then
-        label.Text = clean
-    end
-
-    local conn = label:GetPropertyChangedSignal("Text"):Connect(function()
-        if not (Toggles.HideAllUsernames and Toggles.HideAllUsernames.Value) then return end
-        local cleanText = obfuscateText(label.Text)
-        if label.Text ~= cleanText then
-            label.Text = cleanText
-        end
-    end)
-    table.insert(GlobalNameConnections, conn)
 end
 
 local function initGlobalHiding()
