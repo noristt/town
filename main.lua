@@ -1520,6 +1520,113 @@ SoundModGroup:AddButton({
     end
 })
 
+local LaptopMainGroup = ModsTab:AddLeftGroupbox('Laptop Modifications')
+local LaptopVisualsGroup = ModsTab:AddRightGroupbox('Laptop Effects')
+local function ApplyLaptopMod()
+    local character = LocalPlayer.Character
+    if not character then error("Character not found") end
+
+    local tool = character:FindFirstChildOfClass("Tool")
+    if not tool or not tool:FindFirstChild('Settings') then
+        tool = character:FindFirstChild("Laptop") or LocalPlayer.Backpack:FindFirstChild("Laptop")
+    end
+
+    if not tool then error("You need to hold or own the Laptop tool") end
+
+    local settingsModule = tool:FindFirstChild('Settings')
+    if not settingsModule or not settingsModule:IsA('ModuleScript') then error("Tool has no Settings module") end
+
+    local success, mod = pcall(require, settingsModule)
+    if not success or type(mod) ~= 'table' then error("Failed to require Settings module") end
+
+    local old = GetOriginalSettings(tool)
+
+    local cfg = {
+        -- Duration
+        droneCloakDuration = Options.LaptopCloakDuration and Options.LaptopCloakDuration.Value or mod.droneCloakDuration,
+
+        -- Cooldowns
+        droneCloakCooldown = Options.LaptopCloakCooldown and Options.LaptopCloakCooldown.Value or mod.droneCloakCooldown,
+        droneDefibCooldown = Options.LaptopDefibCooldown and Options.LaptopDefibCooldown.Value or mod.droneDefibCooldown,
+        droneGunRecharge = Options.LaptopGunRecharge and Options.LaptopGunRecharge.Value or mod.droneGunRecharge,
+
+        -- Distance & Range
+        droneCraneDistance = Options.LaptopCraneDistance and Options.LaptopCraneDistance.Value or mod.droneCraneDistance,
+        droneGunRange = Options.LaptopGunRange and Options.LaptopGunRange.Value or mod.droneGunRange,
+        droneDefibRange = Options.LaptopDefibRange and Options.LaptopDefibRange.Value or mod.droneDefibRange,
+
+        -- Burst & Spread
+        droneGunBurst = Options.LaptopGunBurst and Options.LaptopGunBurst.Value or mod.droneGunBurst,
+        droneGunBurstTime = Options.LaptopGunBurstTime and Options.LaptopGunBurstTime.Value or mod.droneGunBurstTime,
+        droneGunSpread = Options.LaptopGunSpread and Options.LaptopGunSpread.Value or mod.droneGunSpread,
+
+        -- Additional Drone Stats
+        droneGunDamage = Options.LaptopGunDamage and Options.LaptopGunDamage.Value or mod.droneGunDamage,
+        flightSpeed = Options.LaptopFlightSpeed and Options.LaptopFlightSpeed.Value or mod.flightSpeed,
+        turnSpeed = Options.LaptopTurnSpeed and Options.LaptopTurnSpeed.Value or mod.turnSpeed,
+        droneHealth = Options.LaptopDroneHealth and Options.LaptopDroneHealth.Value or mod.droneHealth,
+        canOpenDoors = Toggles.LaptopCanOpenDoors and Toggles.LaptopCanOpenDoors.Value or mod.canOpenDoors,
+        droneCloakTransparency = Options.LaptopCloakTransparency and Options.LaptopCloakTransparency.Value or mod.droneCloakTransparency,
+    }
+
+    for index, v in pairs(cfg) do
+        if v ~= old[index] then
+            mod[index] = v
+        end
+    end
+
+    Library:Notify('Applied modifications to Laptop!', 3)
+end
+
+LaptopMainGroup:AddButton({
+    Text = 'Apply Laptop Mods',
+    Func = function()
+        xpcall(ApplyLaptopMod, function(err)
+            Library:Notify('Error: ' .. tostring(err), 3)
+        end)
+    end
+})
+
+LaptopMainGroup:AddDivider()
+
+LaptopMainGroup:AddSlider('LaptopFlightSpeed', { Text = 'Flight Speed', Default = 32, Min = 10, Max = 500, Rounding = 0 })
+LaptopMainGroup:AddSlider('LaptopTurnSpeed', { Text = 'Turn Speed', Default = 90, Min = 10, Max = 500, Rounding = 0 })
+
+local RemoveLaptopEffectsLoop = nil
+
+LaptopVisualsGroup:AddToggle('RemoveLaptopEffects', {
+    Text = 'Remove Overlay',
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            RemoveLaptopEffectsLoop = RunService.RenderStepped:Connect(function()
+                local charWorld = workspace:FindFirstChild(LocalPlayer.Name)
+                if charWorld then
+                    local laptop = charWorld:FindFirstChild("Laptop")
+                    if laptop then
+                        local droneClient = laptop:FindFirstChild("DroneClient")
+                        if droneClient then
+                            local droneBlur = droneClient:FindFirstChild("DroneBlur")
+                            if droneBlur then droneBlur:Destroy() end
+
+                            local droneColor = droneClient:FindFirstChild("DroneColor")
+                            if droneColor then droneColor:Destroy() end
+                        end
+                    end
+                end
+
+                local vhs = PlayerGui:FindFirstChild("VHS")
+                if vhs then vhs:Destroy() end
+            end)
+        else
+            if RemoveLaptopEffectsLoop then
+                RemoveLaptopEffectsLoop:Disconnect()
+                RemoveLaptopEffectsLoop = nil
+            end
+        end
+    end
+})
+
 local PlayerESPGroup = VisualsTab:AddLeftGroupbox('ESP Elements')
 local OffscreenGroup = VisualsTab:AddLeftGroupbox('Off-Screen Indicators')
 local ChamsGroup = VisualsTab:AddRightGroupbox('Chams & Highlights')
