@@ -114,6 +114,7 @@ local Stats = game:GetService('Stats')
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
 
 local Vector2_new = Vector2.new
 local Vector3_new = Vector3.new
@@ -280,7 +281,8 @@ local WorldGroup = MainTab:AddRightGroupbox('World & Atmosphere')
 local SpawnsGroup = MainTab:AddLeftGroupbox('Spawns')
 local Raiding = MainTab:AddRightGroupbox('Raiding')
 
-SpawnsGroup:AddLabel('Wear Mask from inventory (Press ") to hide your username and get votekicked slower.', true)
+SpawnsGroup:AddLabel('Mask hides username and shows user id', true)
+SpawnsGroup:AddLabel('Reset once after choosing/clearing kit', true)
 
 SpawnsGroup:AddButton({
     Text = 'Hide Player | !s Mask',
@@ -288,36 +290,6 @@ SpawnsGroup:AddButton({
         pcall(function()
             local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
             Event:InvokeServer("!s mask")
-        end)
-    end
-})
-
-SpawnsGroup:AddButton({
-    Text = 'Wear Armour | GRU',
-    Func = function()
-        pcall(function()
-            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
-            Event:InvokeServer("!sa GRU")
-        end)
-    end
-})
-
-SpawnsGroup:AddButton({
-    Text = 'Spawn MG',
-    Func = function()
-        pcall(function()
-            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
-            Event:InvokeServer("!s mg")
-        end)
-    end
-})
-
-SpawnsGroup:AddButton({
-    Text = 'Spawn M4',
-    Func = function()
-        pcall(function()
-            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
-            Event:InvokeServer("!s m4")
         end)
     end
 })
@@ -336,6 +308,116 @@ SpawnsGroup:AddButton({
                 end
             end
             Library:Notify('Helmet.Omniscence not found.', 3)
+        end)
+    end
+})
+
+SpawnsGroup:AddButton({
+    Text = 'Kit #1 - RGF',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!sts HK+Ang+J+SLR+NG AK+MOE+SLR+J+NG SR+Coy+SLR+NG SR+Coy+SLR+NG Saiga+SLR+Coy kat JNG+SLR+Pro+Ang+NG med")
+            Event:InvokeServer("!sta RGF")
+        end)
+    end
+})
+
+SpawnsGroup:AddButton({
+    Text = 'Kit #2 - GRU',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!sts MP7+Heavy+Ergo+Exten+EO+NG M870+Ergo+EO+Muzzle+NG AG-19+EO+Muzzle+NG Med")
+            Event:InvokeServer("!sta GRU")
+        end)
+    end
+})
+
+SpawnsGroup:AddButton({
+    Text = 'Kit #3 - SAS',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!sts AK-15+NG+Muzzle+Ergo+EO PP+Com+NG+Coyote WA200+Ergo+Muzzle+NG+Acog Desert+Ergo+Muzzle+NG+Coyote")
+            Event:InvokeServer("!sta SAS")
+        end)
+    end
+})
+
+SpawnsGroup:AddButton({
+    Text = 'Clear Gun Kit',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!sts")
+        end)
+    end
+})
+
+SpawnsGroup:AddButton({
+    Text = 'Clear Armour Kit',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!sta")
+        end)
+    end
+})
+
+SpawnsGroup:AddButton({
+    Text = 'Drop All Tools',
+    Func = function()
+        task.spawn(function()
+            local interactFunction = ReplicatedStorage:FindFirstChild("InteractFunction") or ReplicatedStorage:WaitForChild("InteractFunction", 2)
+            if not interactFunction then
+                Library:Notify('InteractFunction not found in ReplicatedStorage!', 3)
+                return
+            end
+
+            local function dropTool(tool)
+                local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+                if tool.Parent ~= character then
+                    if humanoid then
+                        humanoid:EquipTool(tool)
+                    else
+                        tool.Parent = character
+                    end
+                    task.wait(0.1)
+                end
+
+                local args = {
+                    tool,
+                    "CanCollide",
+                    false,
+                    "par1",
+                    vector.create(100, -100, 100)
+                }
+
+                interactFunction:InvokeServer(unpack(args))
+                task.wait(0.1)
+            end
+
+            local character = LocalPlayer.Character
+            if character then
+                local currentTool = character:FindFirstChildOfClass("Tool")
+                if currentTool then
+                    dropTool(currentTool)
+                end
+            end
+
+            local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+            if backpack then
+                for _, item in ipairs(backpack:GetChildren()) do
+                    if item:IsA("Tool") then
+                        dropTool(item)
+                    end
+                end
+            end
+
+            Library:Notify('Dropped all tools!', 3)
         end)
     end
 })
