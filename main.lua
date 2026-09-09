@@ -1,4 +1,3 @@
--- Combined SkidWare Town & Autobuild Script (Updated with JSON Builder Tab & Advanced Material Support)
 local http_request = (psm and psm.request) or (syn and syn.request) or (fluxus and fluxus.request) or request or http_request or (http and http.request);
 if not http_request then 
 	warn("Executor does not support HTTP requests.")
@@ -2062,7 +2061,7 @@ local VisualsConnection = RunService.RenderStepped:Connect(function()
     end
 end)
 
--- INTEGRATED AUTOBUILD TAB LOGIC (Adapted for JSON Files)
+  INTEGRATED AUTOBUILD TAB LOGIC (Adapted for JSON Files)
 local StateFile = nil
 local StopFlag = false
 local FileStatus, BuildStatus
@@ -2074,7 +2073,7 @@ BuilderGroupSrc:AddButton({
 	Func = function()
 		local files = {}
 		local success, fileList = pcall(function()
-			return listfiles("") -- Some executors prefer "" or handle root paths differently
+			return listfiles("")
 		end)
 		
 		if not success or type(fileList) ~= "table" then
@@ -2157,7 +2156,6 @@ BuilderGroupSrc:AddButton({
 
 FileStatus = BuilderGroupSrc:AddLabel("No file loaded yet", true)
 
--- NEW: Export Player Build Groupbox added to Builder Tab (with advanced material/texture properties)
 local BuilderGroupExport = BuilderTab:AddRightGroupbox('Export Player Build')
 local ExportStatus
 
@@ -2240,7 +2238,7 @@ BuilderGroupExport:AddButton({
 				            Name = child.Name,
 				            ClassName = child.ClassName,
 				            Position = {child.Position.X, child.Position.Y, child.Position.Z},
-				            CFrame = {child.CFrame:GetComponents()}, -- Stores full 12-component position and rotation matrix
+				            CFrame = {child.CFrame:GetComponents()},
 				            Size = {child.Size.X, child.Size.Y, child.Size.Z},
 				            Color = {child.Color.R, child.Color.G, child.Color.B},
 				            Material = tostring(child.Material),
@@ -2252,7 +2250,7 @@ BuilderGroupExport:AddButton({
 				            Children = {}
 			            }
 			
-			            -- Serialize face textures, decals, or surface appearances attached to the part
+			            
 	            for _, subChild in ipairs(child:GetChildren()) do
 					            if subChild.ClassName == "Texture" then
 						            table.insert(partData.Children, {
@@ -2282,11 +2280,9 @@ BuilderGroupExport:AddButton({
 						            })
 					            end
 				            end
-			-- This MUST be outside the child loop, right before ending the BasePart block
 				            table.insert(data, partData)
 
 			            elseif child:IsA("Model") or child:IsA("Folder") then
-			-- Recursively traverse nested folders or models
 				            local nestedData = serializeModel(child)
 				            for _, nestedItem in ipairs(nestedData) do
 					            table.insert(data, nestedItem)
@@ -2400,7 +2396,6 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
         return
     end
 
-    -- Deep recursive collection to catch parts hidden inside nested tables
     local partsList = {}
     local function collectParts(items)
         if type(items) ~= "table" then return end
@@ -2419,8 +2414,6 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
         Library:Notify('JSON has no valid parts!', 4)
         return
     end
-
-    -- 1. Calculate bounds and model center from partsList for proper centering
     local minY, maxY = math.huge, -math.huge
     local centerSum = Vector3.new(0, 0, 0)
     local partCount = #partsList
@@ -2435,8 +2428,6 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
     end
 
     local modelCenter = partCount > 0 and (centerSum / partCount) or Vector3.new(0, 0, 0)
-
-    -- 2. Safely resolve plot boundaries from scope.Parent (supports BasePart, Model, or Player fallback)
     local plot = scope and scope.Parent or nil
     local plotPos, plotTop = Vector3.new(0, 0, 0), 0
     
@@ -2458,7 +2449,6 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
         end
     end
 
-    -- 3. Calculate target center and offset delta based on toggle and raise options
     local targetCenter
     if Toggles.CenterOnPlot and Toggles.CenterOnPlot.Value then
         targetCenter = Vector3.new(plotPos.X, plotTop + (Options.Raise and Options.Raise.Value or 0) + (maxY - minY) / 2, plotPos.Z)
@@ -2480,8 +2470,6 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
         local pos = src.Position
         local baseTargetPos = Vector3.new(pos[1], pos[2], pos[3])
         local targetCF
-        
-        -- Reconstruct rotation matrix if stored, falling back cleanly for legacy JSONs
         if src.CFrame and type(src.CFrame) == "table" and #src.CFrame >= 12 then
             local rawCF = CFrame.new(unpack(src.CFrame))
             local rotationOnly = rawCF - rawCF.Position
@@ -2571,7 +2559,6 @@ BuilderGroupBuild:AddButton({
 				return
 			end
 			
-			-- 1. Handle "Clear existing plot first" Toggle (`ClearFirst`) using F3X API
 			if Toggles.ClearFirst and Toggles.ClearFirst.Value then
 				BuildStatus:SetText("Clearing existing plot...")
 				local partsToRemove = {}
@@ -2588,7 +2575,6 @@ BuilderGroupBuild:AddButton({
 				task.wait(0.3)
 			end
 			
-			-- 2. Correctly locate the plot base in scope.Parent (BuildArea)
 			local raiseOffset = Vector3.new(0, Options.Raise and Options.Raise.Value or 1, 0)
 			local targetCFrame = CFrame.new(0, 5, 0)
 			local plotFolder = scope.Parent
@@ -2609,7 +2595,6 @@ BuilderGroupBuild:AddButton({
 				end
 			end
 			
-			-- 3. Run the build process
 			BuildStatus:SetText("Building model...")
 			local ok, err = pcall(function()
 				BuildSelected(selectedFile, targetCFrame, api, scope)
