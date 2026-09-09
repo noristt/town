@@ -2061,7 +2061,6 @@ local VisualsConnection = RunService.RenderStepped:Connect(function()
     end
 end)
 
-  INTEGRATED AUTOBUILD TAB LOGIC (Adapted for JSON Files)
 local StateFile = nil
 local StopFlag = false
 local FileStatus, BuildStatus
