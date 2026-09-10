@@ -967,7 +967,6 @@ local AimbotGroup = CombatTab:AddLeftGroupbox('Aimbot Settings')
 local AimFilterGroup = CombatTab:AddLeftGroupbox('Target Filtering')
 local TriggerGroup = CombatTab:AddRightGroupbox('Triggerbot Settings')
 local FOVGroup = CombatTab:AddRightGroupbox('FOV Visuals')
-
 local MedkitGroup = CombatTab:AddRightGroupbox('Auto-Heal Controls')
 local WrenchGroup = CombatTab:AddRightGroupbox('Auto-Fix Armor Controls')
 
@@ -1023,12 +1022,99 @@ AimbotGroup:AddSlider('AimbotSmoothness', { Text = 'Smoothing', Default = 5, Min
 AimbotGroup:AddToggle('AimbotStickyTarget', { Text = 'Sticky Target Lock', Default = true })
 
 local SilentAimGroup = CombatTab:AddLeftGroupbox('Silent Aim Settings')
-SilentAimGroup:AddToggle('SilentAimEnabled', { Text = 'Enable Tool Silent Aim', Default = false })
+SilentAimGroup:AddToggle('SilentAimEnabled', { Text = 'Enable Silent Aim', Default = false })
 SilentAimGroup:AddDropdown('SilentAimTargetMode', { Values = { 'Closest Head', 'Closest Torso', 'Closest HRP' }, Default = 1, Multi = false, Text = 'Silent Target Part' })
 
 AimFilterGroup:AddToggle('AimbotEnableBots', { Text = 'Target Bots', Default = false })
 AimFilterGroup:AddToggle('AimbotWallCheck', { Text = 'Wall Check', Default = true })
 AimFilterGroup:AddToggle('AimbotPassiveCheck', { Text = 'Ignore Passive / ForceField', Default = false })
+
+-- tracers
+
+local BulletTracerGroup = CombatTab:AddRightGroupbox('Bullet Tracers')
+
+local BulletTracerToggle = BulletTracerGroup:AddToggle('BulletTracer_Enabled', {
+    Text = 'Enable Bullet Tracers',
+    Default = false
+})
+
+BulletTracerGroup:AddLabel('Tracer Color'):AddColorPicker('BulletTracer_Color', {
+    Default = Color3.fromRGB(255, 0, 255),
+    Title = 'Bullet Tracer Color'
+})
+
+BulletTracerGroup:AddSlider('BulletTracer_Thickness', {
+    Text = 'Thickness',
+    Default = 0.2,
+    Min = 0.05,
+    Max = 1,
+    Rounding = 2
+})
+
+BulletTracerGroup:AddSlider('BulletTracer_Transparency', {
+    Text = 'Transparency',
+    Default = 0.9,
+    Min = 0,
+    Max = 1,
+    Rounding = 2
+})
+
+BulletTracerGroup:AddSlider('BulletTracer_Lifetime', {
+    Text = 'Lifetime (Seconds)',
+    Default = 3,
+    Min = 0.1,
+    Max = 10,
+    Rounding = 1
+})
+
+local function spawnBulletTracer(from, hit)
+    if not BulletTracerToggle.Value then return end
+
+    local part = Instance.new("Part")
+    part.Anchored = true
+    part.CanCollide = false
+    part.Color = Options.BulletTracer_Color.Value
+    part.Transparency = Options.BulletTracer_Transparency.Value
+    part.Material = Enum.Material.Neon
+
+    local distance = (hit - from).Magnitude
+    local midpoint = (from + hit) / 2
+
+    local thickness = Options.BulletTracer_Thickness.Value
+    part.Size = Vector3.new(thickness, distance, thickness)
+    part.CFrame = CFrame.new(midpoint, hit) * CFrame.Angles(math.rad(90), 0, 0)
+    part.Parent = workspace
+
+    -- Safely destroy after the configured lifetime
+    task.delay(Options.BulletTracer_Lifetime.Value, function()
+        pcall(function()
+            part:Destroy()
+        end)
+    end)
+end
+
+-- 3. Hook Namecall for FireEvent
+local meta = getrawmetatable(game)
+local oldNamecall = meta.__namecall
+setreadonly(meta, false)
+
+meta.__namecall = newcclosure(function(self, ...)
+    if self.Name == "FireEvent" then
+        local args = {...}
+        -- Safely attempt to parse bullet data without breaking the game if table structures change
+        pcall(function()
+            local shot = args[1][1][1]
+            local hit = shot[2]
+            local from = shot[5]
+            if hit and from then
+                task.spawn(spawnBulletTracer, from, hit)
+            end
+        end)
+    end
+    return oldNamecall(self, ...)
+end)
+
+setreadonly(meta, true)
 
 local TrigToggle = TriggerGroup:AddToggle('TriggerbotEnabled', { Text = 'Enable Triggerbot', Default = false })
 TrigToggle:AddKeyPicker('TriggerKeybind', { Default = 'MB2', Mode = 'Hold', Text = 'Trigger Key' })
