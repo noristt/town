@@ -346,6 +346,18 @@ SpawnsGroup:AddButton({
 })
 
 SpawnsGroup:AddButton({
+    Text = 'Kit #4 - Riot',
+    Func = function()
+        pcall(function()
+            local Event = game:GetService("Players").LocalPlayer.PlayerGui.ChatConsoleGui.CommandFunction
+            Event:InvokeServer("!sts m4+sup+red+fold+refle inter+hunt+heavy m9+sup+red ar+hunt lap med def wrench")
+            Event:InvokeServer("!sta riot")
+        end)
+    end
+})
+
+
+SpawnsGroup:AddButton({
     Text = 'Clear Gun Kit',
     Func = function()
         pcall(function()
