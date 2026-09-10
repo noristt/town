@@ -1359,6 +1359,7 @@ end)
 
 local WeaponGroup = ModsTab:AddLeftGroupbox('Equipped Weapon Modifications')
 local SoundModGroup = ModsTab:AddRightGroupbox('Gun Sound Modder')
+local SniperGroup = ModsTab:AddRightGroupbox('Sway Mods')
 
 local originalSettingsCache = {}
 
@@ -1624,6 +1625,63 @@ LaptopVisualsGroup:AddToggle('RemoveLaptopEffects', {
                 RemoveLaptopEffectsLoop = nil
             end
         end
+    end
+})
+
+local swayConnection = nil
+local characterConnection = nil
+
+local function toggleAimSwayRemoval(enabled)
+    if enabled then
+        local function checkValue(item)
+            if item.Name == "AimSway" or item.Name == "SwayTime" then
+                if item:IsA("NumberValue") then
+                    item.Value = 0
+                    if not item:FindFirstChild("SwayLockConn") then
+                        local conn = item:GetPropertyChangedSignal("Value"):Connect(function()
+                            if item.Value ~= 0 then
+                                item.Value = 0
+                            end
+                        end)
+                        -- Optional tracking tag if needed, or rely on toggle state cleanup
+                    end
+                end
+            end
+        end
+
+        local function setupCharacter(char)
+            if swayConnection then swayConnection:Disconnect() end
+            
+            for _, descendant in ipairs(char:GetDescendants()) do
+                checkValue(descendant)
+            end
+            
+            swayConnection = char.DescendantAdded:Connect(checkValue)
+        end
+
+        if LocalPlayer.Character then
+            setupCharacter(LocalPlayer.Character)
+        end
+
+        characterConnection = LocalPlayer.CharacterAdded:Connect(function(newChar)
+            setupCharacter(newChar)
+        end)
+        
+        Library:Notify('Aim Sway removal enabled!', 3)
+    else
+        if swayConnection then swayConnection:Disconnect() swayConnection = nil end
+        if characterConnection then characterConnection:Disconnect() characterConnection = nil end
+        Library:Notify('Aim Sway removal disabled.', 3)
+    end
+end
+
+SniperGroup:AddToggle('RemoveAimSwayToggle', {
+    Text = 'Remove Aim Sway / SwayTime',
+    Default = false,
+    Callback = function(Value)
+        pcall(function()
+            toggleAimSwayRemoval(Value)
+        end)
     end
 })
 
