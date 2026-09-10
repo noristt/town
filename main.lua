@@ -1676,7 +1676,7 @@ local function toggleAimSwayRemoval(enabled)
 end
 
 SniperGroup:AddToggle('RemoveAimSwayToggle', {
-    Text = 'Remove Aim Sway / SwayTime',
+    Text = 'Remove Scope Sway',
     Default = false,
     Callback = function(Value)
         pcall(function()
