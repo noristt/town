@@ -1097,7 +1097,6 @@ local function spawnBulletTracer(from, hit)
     part.CFrame = CFrame.new(midpoint, hit) * CFrame.Angles(math.rad(90), 0, 0)
     part.Parent = workspace
 
-    -- Safely destroy after the configured lifetime
     task.delay(Options.BulletTracer_Lifetime.Value, function()
         pcall(function()
             part:Destroy()
@@ -1105,7 +1104,6 @@ local function spawnBulletTracer(from, hit)
     end)
 end
 
--- 3. Hook Namecall for FireEvent
 local meta = getrawmetatable(game)
 local oldNamecall = meta.__namecall
 setreadonly(meta, false)
@@ -1113,7 +1111,6 @@ setreadonly(meta, false)
 meta.__namecall = newcclosure(function(self, ...)
     if self.Name == "FireEvent" then
         local args = {...}
-        -- Safely attempt to parse bullet data without breaking the game if table structures change
         pcall(function()
             local shot = args[1][1][1]
             local hit = shot[2]
@@ -1181,7 +1178,6 @@ local function setupTool(tool)
     if not tool:IsA("Tool") then return end
 
     tool.Equipped:Connect(function()
-        -- Force global accMult to 0 on equip if silent aim is active
         local settingsModule = tool:FindFirstChild('Settings')
         if settingsModule and settingsModule:IsA('ModuleScript') then
             pcall(function()
@@ -1741,7 +1737,6 @@ local function toggleAimSwayRemoval(enabled)
                                 item.Value = 0
                             end
                         end)
-                        -- Optional tracking tag if needed, or rely on toggle state cleanup
                     end
                 end
             end
@@ -2406,6 +2401,55 @@ local StateFile = nil
 local StopFlag = false
 local FileStatus, BuildStatus
 
+local function SafeJSONDecode(raw)
+	if type(raw) ~= "string" or raw == "" then
+		return false, "Raw data is empty or not a string"
+	end
+
+	if raw:match("%.%.%.%s*$") then
+		return false, "JSON file is truncated (ends with '...')"
+	end
+
+	if type(json) == "table" then
+		if type(json.tryDecode) == "function" then
+			local success, result = pcall(function()
+				return json.tryDecode(raw)
+			end)
+			if success and result ~= nil then
+				return true, result
+			end
+		end
+		if type(json.decode) == "function" then
+			local success, result = pcall(function()
+				return json.decode(raw)
+			end)
+			if success and result ~= nil then
+				return true, result
+			end
+		end
+	end
+
+	
+	local httpService = game:GetService("HttpService")
+	local success, result = pcall(function()
+		return httpService:JSONDecode(raw)
+	end)
+	if success then
+		return true, result
+	end
+
+	if HTTP and type(HTTP.JSONDecode) == "function" then
+		local success, result = pcall(function()
+			return HTTP:JSONDecode(raw)
+		end)
+		if success then
+			return true, result
+		end
+	end
+
+	return false, result or "All JSON decode methods failed"
+end
+
 local BuilderGroupSrc = BuilderTab:AddLeftGroupbox('Source file')
 
 BuilderGroupSrc:AddButton({
@@ -2458,17 +2502,15 @@ BuilderGroupSrc:AddButton({
 			Library:Notify('Pick a valid file first (refresh the list)', 3)
 			return
 		end
-		local ok, data = pcall(function()
-			local raw = readfile(selected)
-            if raw:match("%.%.%.%s*$") then
-                error("JSON file is truncated (ends with '...')")
-            end
-			return HTTP:JSONDecode(raw)
-		end)
+		
+		local raw = readfile(selected)
+		local ok, data = SafeJSONDecode(raw)
+		
 		if not ok then
 			Library:Notify('Load failed: ' .. tostring(data), 4)
 			return
 		end
+		
 		local genv = getgenv()
 		genv.StarryStateFile = { Data = data, Name = selected }
 		StateFile = genv.StarryStateFile
@@ -2589,7 +2631,6 @@ BuilderGroupExport:AddButton({
 				            Anchored = child.Anchored,
 				            Children = {}
 			            }
-			
 			            
 	            for _, subChild in ipairs(child:GetChildren()) do
 					            if subChild.ClassName == "Texture" then
@@ -2723,13 +2764,9 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
         Library:Notify('Please select a valid JSON file from the dropdown first!', 4)
         return
     end
+    
     local raw = readfile(selected)
-    local ok, jsonData = pcall(function()
-        if raw:match("%.%.%.%s*$") then
-            error("JSON file is truncated")
-        end
-        return HTTP:JSONDecode(raw)
-    end)
+    local ok, jsonData = SafeJSONDecode(raw)
     
     if not ok then
         Library:Notify('Load failed: ' .. tostring(jsonData), 4)
@@ -2886,6 +2923,7 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
     BuildStatus:SetText(("Done. %d placed, %d failed out of %d"):format(placed, failed, #partsList))
     Library:Notify(("Build finished: %d placed, %d failed"):format(placed, failed), 4)
 end
+
 BuilderGroupBuild:AddButton({
 	Text = "Build!",
 	Func = function()
