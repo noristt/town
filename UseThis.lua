@@ -16,9 +16,9 @@ if not isfolder("SkidWare") then
 	makefolder("SkidWare")
 end
 
-BaseURL = "https://raw.githubusercontent.com/ToesOfTexasHoldem/Code/refs/heads/main/"
-const Url = BaseURL .. "main.lua"
-const Path = "SkidWare/main.lua"
+BaseURL = "https://raw.githubusercontent.com/noristt/town/refs/heads/main/"
+const Url = BaseURL .. "Core.lua"
+const Path = "SkidWare/Core.lua"
 local Code = ""
 
 if AutoUpdate then
