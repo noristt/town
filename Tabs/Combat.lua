@@ -123,7 +123,7 @@ local function spawnBulletTracer(from, hit)
 	part.CFrame = CFrame.new(midpoint, hit) * CFrame.Angles(math.rad(90), 0, 0)
 	part.Parent = workspace
 	
-	TweenService:Create(part, TweenInfo.new(Options.BulletTracer_Lifetime.Value, Enum.EasingStyle.Quart), {Transparency = 1, Size = Vector3.new(0, distance, 0)}):Play()
+	TweenService:Create(part, TweenInfo.new(Options.BulletTracer_Lifetime.Value, Enum.EasingStyle.Quart), {Transparency = , Size = Vector3.new(0, distance, 0)}):Play()
 	
 	task.spawn(function()
 		local a = tick()
