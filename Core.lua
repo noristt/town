@@ -204,3 +204,5 @@ SaveManager:BuildConfigSection(UISettingsTab)
 ThemeManager:ApplyToTab(UISettingsTab)
 
 SaveManager:LoadAutoloadConfig()
+
+Load("Systems/ToolUser.lua") -- i forgot to load this LOL - lua_u
