@@ -29,6 +29,7 @@ TweenService = game:GetService("TweenService")
 Lighting = game:GetService("Lighting")
 Stats = game:GetService("Stats")
 HttpService = game:GetService("HttpService")
+HTTP = HttpService
 
 -- Preloads to maintain support
 Vector2_new = Vector2.new
