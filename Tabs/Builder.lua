@@ -69,13 +69,17 @@ BuilderGroupSrc:AddButton({
 		genv.StarryStateFile = { Data = data, Name = selected }
 		StateFile = genv.StarryStateFile
 
+		-- Robust counter: works with both integer-keyed arrays and string-keyed tables
+		-- (some executors / large JSONDecode results produce string keys, which break ipairs)
 		local function countParts(items)
 			local count = 0
-			if type(items) == "table" then
-				for _, item in ipairs(items) do
+			if type(items) ~= "table" then return 0 end
+			for _, item in pairs(items) do
+				if type(item) == "table" then
 					if item.Position and item.Size then
 						count = count + 1
-					elseif item.Children then
+					end
+					if type(item.Children) == "table" then
 						count = count + countParts(item.Children)
 					end
 				end
@@ -333,14 +337,18 @@ local function BuildSelected(selected, targetPlotCFrame, api, scope)
 	end
 
 	local partsList = {}
+	-- Robust collector: works with both integer-keyed arrays and string-keyed tables
+	-- (some executors / large JSONDecode results produce string keys, which break ipairs)
 	local function collectParts(items)
 		if type(items) ~= "table" then return end
-		for _, item in ipairs(items) do
-			if item.Position and item.Size then
-				table.insert(partsList, item)
-			end
-			if item.Children and type(item.Children) == "table" then
-				collectParts(item.Children)
+		for _, item in pairs(items) do
+			if type(item) == "table" then
+				if item.Position and item.Size then
+					table.insert(partsList, item)
+				end
+				if type(item.Children) == "table" then
+					collectParts(item.Children)
+				end
 			end
 		end
 	end
