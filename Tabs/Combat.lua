@@ -192,18 +192,22 @@ local function getClosestTargetPartForSilent()
 	local shortestDistance = math.huge
 	local targetMode = Options.SilentAimTargetMode and Options.SilentAimTargetMode.Value or 'Closest Head'
 	local targetPartName = "Head"
-	if targetMode == 'Closest Torso' then targetPartName = "Torso"
-	elseif targetMode == 'Closest HRP' then targetPartName = "HumanoidRootPart" end
+	
+	if targetMode == 'Closest Torso' then 
+		targetPartName = "Torso"
+	elseif targetMode == 'Closest HRP' then 
+		targetPartName = "HumanoidRootPart" 
+	end
 
 	local maxRadius = Options.AimbotFOV and Options.AimbotFOV.Value or 150
 	local centerScreen = Vector2_new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
+	-- regular check
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
 			local targetPart = player.Character:FindFirstChild(targetPartName) or player.Character:FindFirstChild("Head")
-
-			if humanoid and humanoid.Health > 0 and targetPart then
+			
+			if targetPart and IsValidTarget(targetPart, player.Character) then
 				local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
 				if onScreen then
 					local distToScreen = (Vector2_new(screenPos.X, screenPos.Y) - centerScreen).Magnitude
@@ -212,6 +216,32 @@ local function getClosestTargetPartForSilent()
 						if distance < shortestDistance then
 							shortestDistance = distance
 							closestPart = targetPart
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- bots
+	if Toggles.AimbotEnableBots and Toggles.AimbotEnableBots.Value then
+		local botStorage = workspace:FindFirstChild('BotStorage')
+		if botStorage then
+			for _, botModel in ipairs(botStorage:GetChildren()) do
+				if botModel:IsA('Model') then
+					local targetPart = botModel:FindFirstChild(targetPartName) or botModel:FindFirstChild("Head")
+					
+					if targetPart and IsValidTarget(targetPart, botModel) then
+						local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+						if onScreen then
+							local distToScreen = (Vector2_new(screenPos.X, screenPos.Y) - centerScreen).Magnitude
+							if distToScreen <= maxRadius then
+								local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
+								if distance < shortestDistance then
+									shortestDistance = distance
+									closestPart = targetPart
+								end
+							end
 						end
 					end
 				end
