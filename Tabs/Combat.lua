@@ -122,9 +122,9 @@ local function spawnBulletTracer(from, hit)
 	part.Size = Vector3.new(thickness, distance, thickness)
 	part.CFrame = CFrame.new(midpoint, hit) * CFrame.Angles(math.rad(90), 0, 0)
 	part.Parent = workspace
-	
-	TweenService:Create(part, TweenInfo.new(Options.BulletTracer_Lifetime.Value, Enum.EasingStyle.Quart), {Transparency = , Size = Vector3.new(0, distance, 0)}):Play()
-	
+
+	TweenService:Create(part, TweenInfo.new(Options.BulletTracer_Lifetime.Value, Enum.EasingStyle.Quart), {Transparency = 1, Size = Vector3.new(0, distance, 0)}):Play()
+
 	task.spawn(function()
 		local a = tick()
 		while part do
@@ -140,12 +140,12 @@ local function spawnBulletTracer(from, hit)
 			end
 		end
 	end)
-	
+
 	-- Safely destroy after the configured lifetime
 	--task.delay(Options.BulletTracer_Lifetime.Value, function()
-		--pcall(function()
-			--part:Destroy()
-		--end)
+	--pcall(function()
+	--part:Destroy()
+	--end)
 	--end)
 	Debris:AddItem(part, Options.BulletTracer_Lifetime.Value)
 end

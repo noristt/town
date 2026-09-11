@@ -74,7 +74,7 @@ const function HGet(url: string)
 			["Cache-Control"] = "no-cache"
 		}
 	})
-	
+
 	return ret.Body
 end
 
@@ -90,7 +90,13 @@ const function Get(name: string, update: boolean?)
 end
 
 const function LoadTab(tab)
-	local module = Load("Tabs/" .. tab.Name:gsub(" ", "") .. ".lua")
+	local a, b = pcall(function()
+		local module = Load("Tabs/" .. tab.Name:gsub(" ", "") .. ".lua")
+	end)
+
+	if not a then
+		print(b)
+	end
 end
 
 function Load(name: string)
@@ -102,9 +108,12 @@ function Load(name: string)
 	else
 		local Code = Get( name, UpdateFlag)
 		if Code == "" then
-			Get(name, true)
+			Code = Get(name, true)
 		end
 		local Func = loadstring(Code, name)
+		if typeof(Func) ~= "function" then
+			print("err", Func)
+		end
 		setfenv(Func, Environment) -- Make sure whatever globals it adds goes to here. - lua_u
 		return Func()
 	end
